@@ -16,6 +16,7 @@ import java.io.PrintWriter
 import org.apache.spark.rdd.MapPartitionsRDD
 import org.apache.spark.rdd.RDD
 import scala.util.Random
+import scala.reflect.ClassTag
 
 /**
  * @author SARA
@@ -99,40 +100,29 @@ object runROS {
   }
   
   def apply(trainRaw: RDD[String], minclass: String, majclass: String, overRate: Int) = {    
-    
-    var oversample: RDD[String]= null
-    var fraction = 0.0 
-    
+  
     val train_positive = trainRaw.filter(line => line.split(",").last.compareToIgnoreCase(minclass) == 0)
     val train_negative = trainRaw.filter(line => line.split(",").last.compareToIgnoreCase(majclass) == 0)
-    
-    num_neg = train_negative.count()
-    num_pos = train_positive.count()
-      
-    if (num_pos > num_neg){
-      fraction = (num_pos*(overRate.toFloat/100)).toFloat/num_neg
-      println("fraction:" + fraction)
-      oversample = train_positive.union(train_negative.sample(true, fraction, 1234))
-      
-    }else{
-      fraction = (num_neg*(overRate.toFloat/100)).toFloat/num_pos
-      println("fraction:" + fraction)
-      oversample = train_negative.union(train_positive.sample(true, fraction, 1234))
-    }
+    val oversample = doROS(train_negative, train_positive,  overRate)
     
     oversample
   }
   
   def apply(trainRaw: RDD[LabeledPoint], minclass: Double, majclass: Double, overRate: Int): RDD[LabeledPoint]= {
-    var oversample: RDD[LabeledPoint]= null
-    var fraction = 0.0 
-    
+
     val train_positive = trainRaw.filter(line => line.label ==  minclass)
     val train_negative = trainRaw.filter(line => line.label ==  majclass)
+    val oversample = doROS(train_negative, train_positive,  overRate)
     
+    oversample
+   } 
+
+  def doROS[K: ClassTag](train_negative: RDD[K], train_positive: RDD[K],  overRate: Int) : RDD[K] ={
+    var oversample: RDD[K]= null
+    var fraction = 0.0   
     num_neg = train_negative.count()
     num_pos = train_positive.count()
-      
+     
     if (num_pos > num_neg){
       fraction = (num_pos*(overRate.toFloat/100)).toFloat/num_neg
       println("fraction:" + fraction)
@@ -143,10 +133,7 @@ object runROS {
       println("fraction:" + fraction)
       oversample = train_negative.union(train_positive.sample(true, fraction, 1234))
     }
-    
     oversample
-   } 
-
-
+  }
 }
 

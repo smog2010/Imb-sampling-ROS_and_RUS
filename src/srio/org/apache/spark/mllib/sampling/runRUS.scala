@@ -16,6 +16,7 @@ import java.io.PrintWriter
 import org.apache.spark.rdd.MapPartitionsRDD
 import org.apache.spark.rdd.RDD
 import scala.util.Random
+import scala.reflect.ClassTag
 
 /**
  * @author SARA
@@ -93,38 +94,28 @@ object runRUS {
   }
   
   def apply(trainRaw: RDD[String], minclass: String, majclass: String) = {
-    
-    var undersample: RDD[String]= null
-    var fraction = 0.0 
-    
+  
     val train_positive = trainRaw.filter(line => line.split(",").last.compareToIgnoreCase(minclass) == 0)
     val train_negative = trainRaw.filter(line => line.split(",").last.compareToIgnoreCase(majclass) == 0)
-    
-    val num_neg = train_negative.count()
-    val num_pos = train_positive.count()
-      
-    if (num_pos > num_neg){
-      fraction = num_neg.toFloat/num_pos
-      println("fraction:" + fraction)
-      undersample = train_negative.union(train_positive.sample(false, fraction, 1234))
-      
-    }else{
-      fraction = num_pos.toFloat/num_neg
-      println("fraction:" + fraction)
-      undersample = train_positive.union(train_negative.sample(false, fraction, 1234))
-    }
+    var undersample: RDD[String]= doRUS(train_negative, train_positive)
     
     undersample
   }
   
   def apply(trainRaw: RDD[LabeledPoint], minclass: Double, majclass: Double): RDD[LabeledPoint]= {
     
-    var undersample: RDD[LabeledPoint]= null
-    var fraction = 0.0 
+    
     
     val train_positive = trainRaw.filter(line => line.label ==  minclass)
     val train_negative = trainRaw.filter(line => line.label ==  majclass)
+    var undersample: RDD[LabeledPoint]= doRUS(train_negative, train_positive)
     
+    undersample
+  }
+
+  def doRUS[K: ClassTag](train_negative:RDD[K], train_positive: RDD[K]):RDD[K] = {
+    var undersample: RDD[K]= null
+    var fraction = 0.0 
     val num_neg = train_negative.count()
     val num_pos = train_positive.count()
       
@@ -138,10 +129,7 @@ object runRUS {
       println("fraction:" + fraction)
       undersample = train_positive.union(train_negative.sample(false, fraction, 1234))
     }
-    
     undersample
   }
-
-
 }
 
